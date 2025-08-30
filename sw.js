@@ -19,20 +19,23 @@ self.addEventListener('activate', e => {
   e.waitUntil(self.clients.claim());
 });
 
-// Fetch: sirve primero de cache pero actualiza si hay internet
+// Fetch: cache-first, pero actualizar si hay internet y versión nueva
 self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(cachedResponse => {
-      const fetchPromise = fetch(e.request).then(networkResponse => {
-        // Sobrescribe en cache solo si hay respuesta válida
-        if (networkResponse && networkResponse.status === 200) {
+      return fetch(e.request).then(networkResponse => {
+        // Solo cachear si la respuesta es válida y diferente a la cacheada
+        if(networkResponse && networkResponse.status === 200){
           caches.open(CACHE_NAME).then(cache => {
-            cache.put(e.request, networkResponse.clone());
+            cache.match(e.request).then(existing => {
+              if(!existing || networkResponse.clone().url !== existing.url){
+                cache.put(e.request, networkResponse.clone());
+              }
+            });
           });
         }
         return networkResponse;
-      }).catch(() => cachedResponse); // Si no hay internet, usa cache
-      return cachedResponse || fetchPromise;
+      }).catch(() => cachedResponse); // Si no hay internet, sirve cache
     })
   );
 });
