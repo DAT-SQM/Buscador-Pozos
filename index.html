@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buscador de Pozos PWA</title>
+<link rel="manifest" href="manifest.json">
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; background:#f1f5f9; }
+select { padding: 8px; width: 100%; margin-bottom: 20px; }
+.card { border: 1px solid #ccc; border-radius: 10px; padding: 15px; margin-bottom: 20px; background:#fff; }
+canvas { max-width: 100%; margin-top: 10px; border:1px solid #ccc; }
+h2 { color:#0ea5e9; }
+</style>
+</head>
+<body>
+
+<h2>🔎 Buscador de Pozos - PWA Final</h2>
+<select id="pozoSelect"></select>
+<div id="result"></div>
+
+<script>
+// ===== Datos y gráficos =====
+function randArrayDec(min,max,len){
+  return Array.from({length: len}, ()=> +(Math.random()*(max-min)+min).toFixed(2));
+}
+function generarPozo(id){
+  return {
+    id: `PZ-${id.toString().padStart(3,'0')}`,
+    ubicacion: `Sector ${Math.ceil(Math.random()*50)}`,
+    profundidad_m: +(Math.random()*200+100).toFixed(2),
+    caudal_lps: +(Math.random()*50+10).toFixed(2),
+    litio_mgL: +(Math.random()*500+400).toFixed(2),
+    niveles_historicos: randArrayDec(0,5,10),
+    litio_historico: randArrayDec(0,5,10),
+    caudal_historico: randArrayDec(10,50,10)
+  };
+}
+const pozos = Array.from({length:500},(_,i)=>generarPozo(i+1));
+
+// Selector
+const pozoSelect = document.getElementById("pozoSelect");
+function llenarSelector() {
+  pozoSelect.innerHTML = "";
+  pozos.forEach(p=>{
+    const option = document.createElement("option");
+    option.value = p.id;
+    option.text = `${p.id} - ${p.ubicacion}`;
+    pozoSelect.appendChild(option);
+  });
+}
+
+// Dibujar gráfico
+function dibujarGrafico(canvas, data, color, label) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width; const h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+
+  // Ejes
+  ctx.beginPath();
+  ctx.moveTo(40,10); ctx.lineTo(40,h-30); ctx.lineTo(w-10,h-30);
+  ctx.strokeStyle="#000"; ctx.stroke();
+
+  const max = Math.max(...data); const min = Math.min(...data); const len = data.length;
+
+  ctx.beginPath(); ctx.strokeStyle=color;
+  data.forEach((val,i)=>{
+    const x = 40 + i*((w-50)/(len-1));
+    const y = h-30 - ((val-min)/(max-min))*(h-40);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    ctx.fillStyle="#000"; ctx.font="12px Arial"; ctx.fillText(val.toFixed(2),x-12,y-5);
+  });
+  ctx.stroke();
+  ctx.fillStyle="#000"; ctx.font="14px Arial"; ctx.fillText(label,w/2-30,15);
+}
+
+// Mostrar pozo
+function mostrarPozo(pozo){
+  const container = document.getElementById("result"); container.innerHTML="";
+  const card = document.createElement("div"); card.className="card";
+  card.innerHTML=`
+    <h3>${pozo.id} - ${pozo.ubicacion}</h3>
+    <p><b>Profundidad:</b> ${pozo.profundidad_m} m</p>
+    <p><b>Caudal:</b> ${pozo.caudal_lps} L/s</p>
+    <p><b>Litio:</b> ${pozo.litio_mgL} mg/L</p>
+    <canvas id="niveles" width="400" height="150"></canvas>
+    <canvas id="litio" width="400" height="150"></canvas>
+    <canvas id="caudal" width="400" height="150"></canvas>`;
+  container.appendChild(card);
+  dibujarGrafico(document.getElementById("niveles"), pozo.niveles_historicos,"blue","Niveles");
+  dibujarGrafico(document.getElementById("litio"), pozo.litio_historico,"green","Litio");
+  dibujarGrafico(document.getElementById("caudal"), pozo.caudal_historico,"red","Caudal");
+}
+
+// Inicializar
+llenarSelector(); mostrarPozo(pozos[0]);
+pozoSelect.addEventListener("change", ()=>{ const pozo = pozos.find(p=>p.id===pozoSelect.value); mostrarPozo(pozo); });
+
+// ===== Registrar Service Worker =====
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js')
+  .then(()=>console.log('Service Worker registrado'))
+  .catch(err=>console.log('Error SW:',err));
+}
+</script>
+</body>
+</html>
